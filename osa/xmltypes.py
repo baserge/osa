@@ -6,6 +6,7 @@
     Python classes corresponding to XML schema.
 """
 from . import xmlnamespace
+from . import xmlparser
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 import xml.etree.cElementTree as etree
@@ -173,11 +174,13 @@ class XMLType(object):
                 if not(hasattr(single, "to_xml")):
                     single = child['type'](single)
                 single.to_xml(element, full_child_name)
-                if child["type"] is XMLAny:
+                if child["type"] is XMLAny or \
+                        (isinstance(single, XMLType) and type(single) != child["type"]):
                     # append type information
                     element[-1].set("{%s}type" % xmlnamespace.NS_XSI,
+                                    etree.QName(
                                     "{%s}%s" % (single._namespace,
-                                                single.__class__.__name__))
+                                                single.__class__.__name__)))
                 # try:
                     # single.to_xml(element, full_name)
                     # if child["type"] is XMLAny:
@@ -219,6 +222,10 @@ class XMLType(object):
 
             # used for conversion. for primitive types we receive back built-ins
             inst = self._children[ind]['type']()
+            explicit_type = subel.get('{%s}type' % xmlnamespace.NS_XSI)
+            if explicit_type is not None:
+                inst = XMLAny()
+
             # we do not distinguish xs:nil="true" explicitly here, this will have
             # empty text in any case, this is not strict standard, but ...
             subvalue = inst.from_xml(subel)
@@ -296,9 +303,10 @@ class XMLType(object):
             out : new instance
         """
         f = open(fname)
-        s = f.read()
-        f.close()
-        root = etree.fromstring(s)
+        #s = f.read()
+        #f.close()
+        #root = etree.fromstring(s)
+        root = xmlparser.parse_qualified(f)
         inst = cls()
         return inst.from_xml(root)
 

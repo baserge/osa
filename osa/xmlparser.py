@@ -60,7 +60,8 @@ def parse_qualified(f, attr=None):
                 root = element
             # check that this element has an attribute of interest
             for a in element.attrib:
-                if a in attr:
+                ashort = a.split(":")[-1].split("}")[-1]
+                if ashort in attr:
                     # check the attribute value is qualified
                     vlist = element.attrib[a].split(":")
                     if len(vlist) == 2:
