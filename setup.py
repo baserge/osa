@@ -18,7 +18,7 @@ Topic :: Software Development :: Object Brokering""".split("\n")
 
 setup(
     name='osa',
-    version='0.2',
+    version='0.2.1',
     description='Python fast/slim/convenient SOAP/WSDL client.',
     author="Sergey A. Bozhenkov",
     author_email='ba-serge@yandex.ru',
