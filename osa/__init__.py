@@ -2,6 +2,6 @@
 # Copyright 2013 Sergey Bozhenkov, boz at ipp.mpg.de
 # Licensed under LGPLv3 or later, see the COPYING file.
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 from .client import Client
