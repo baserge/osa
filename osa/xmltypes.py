@@ -422,7 +422,7 @@ class XMLInteger(XMLType, int):
     def from_xml(self, element):
         if element.text:
             try:
-                return int(element.text)
+                return int(element.text.strip("L"))  # py2 strings can have L
             except:
                 return long(element.text)
         return 0
