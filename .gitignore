@@ -1,0 +1,10 @@
+*.py[oc]
+*.sw[aop]
+tags
+!.gitignore
+.ipynb_checkpoints
+build/
+dist/
+.eggs/
+env/
+w7xdia.egg-info
