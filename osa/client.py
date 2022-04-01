@@ -101,10 +101,10 @@ class Client(object):
         wsdl_url : str
             Address of wsdl document to consume.
     """
-    def __init__(self, wsdl_url):
+    def __init__(self, wsdl_url, osa_timeout=None):
         #create parser and download the WSDL document
         self.wsdl_url = wsdl_url
-        parser = wsdl.WSDLParser(wsdl_url)
+        parser = wsdl.WSDLParser(wsdl_url, osa_timeout=osa_timeout)
         self._types, self._services = parser.parse()
         self.names = []
         self.create_types_container()

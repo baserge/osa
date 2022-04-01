@@ -73,7 +73,7 @@ def parse_qualified(f, attr=None):
     return root
 
 
-def parse_qualified_from_url(url, attr=None, wsdl_url=None):
+def parse_qualified_from_url(url, attr=None, wsdl_url=None, osa_timeout=None):
     """
         The same as `parse_qualified`, but xml is given by its url.
 
@@ -81,9 +81,10 @@ def parse_qualified_from_url(url, attr=None, wsdl_url=None):
     """
     # open page - get a file like object and
     # parse it into xml
+    args = [None, osa_timeout] if osa_timeout else []
     try:
         # opens http://, https://, file://
-        page_handler = urlopen(url)
+        page_handler = urlopen(url, *args)
     except (HTTPError, ValueError):
         try:
             # url is something /path/to/file, use open directly
@@ -96,7 +97,7 @@ def parse_qualified_from_url(url, attr=None, wsdl_url=None):
                     # local file isn't found, try to get remote file with
                     # wsdl_url 'directory' + filename
                     url = wsdl_url.rsplit('/', 1)[0] + '/' + url
-                    page_handler = urlopen(url)
+                    page_handler = urlopen(url, *args)
                 except (HTTPError, ValueError):
                     pass
             if not page_handler:
