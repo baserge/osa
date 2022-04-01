@@ -5,81 +5,82 @@
 """
     Python classes corresponding to XML schema.
 """
-from . import xmlnamespace
-from . import xmlparser
-from decimal import Decimal
-from datetime import date, datetime, timedelta
-import xml.etree.cElementTree as etree
 import base64
 import sys
+import xml.etree.cElementTree as etree
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+
+from . import xmlnamespace, xmlparser
+
 if sys.version_info[0] > 2:
     unicode = str
 
 
 def get_local_type(xmltype):
     """
-        Simplifies types names, e.g. XMLInteger is
-        presented as int.
+    Simplifies types names, e.g. XMLInteger is
+    presented as int.
 
-        This is used for nice printing only.
+    This is used for nice printing only.
     """
     if xmltype == "XMLBoolean":
-        return 'bool'
+        return "bool"
     elif xmltype == "XMLDecimal":
-        return 'decimal'
+        return "decimal"
     elif xmltype == "XMLInteger":
-        return 'int'
+        return "int"
     elif xmltype == "XMLDouble":
-        return 'float'
+        return "float"
     elif xmltype == "XMLString":
-        return 'str'
+        return "str"
     elif xmltype == "XMLDate":
-        return 'date'
+        return "date"
     elif xmltype == "XMLDateTime":
-        return 'datetime'
+        return "datetime"
     else:
         return xmltype
 
 
 def toinit(self, deep=False):
     """
-        Nice init for complex types.
+    Nice init for complex types.
 
-        All obligatory (non-nillable) children can also be created.
+    All obligatory (non-nillable) children can also be created.
 
-        Parameters
-        ----------
-        deep : bool, optional, defaule False
-            If True all non-nillable children are created, otherwise
-            they are simply None. The latter is used when
-            converting response from XML to Python.
+    Parameters
+    ----------
+    deep : bool, optional, defaule False
+        If True all non-nillable children are created, otherwise
+        they are simply None. The latter is used when
+        converting response from XML to Python.
     """
-    if not(deep):
+    if not (deep):
         return
     for child in self._children:
-        if child['min'] == 0:
+        if child["min"] == 0:
             continue
-        val_type = child['type']
+        val_type = child["type"]
         val = None
         if getattr(val_type, "_children", None) is not None:
             val = val_type(deep=deep)
         else:
             val = val_type()
-        if child['max'].__class__.__name__ != "int" or child['max'] > 1:
+        if child["max"].__class__.__name__ != "int" or child["max"] > 1:
             val = [val]
-        setattr(self, child['name'], val)
+        setattr(self, child["name"], val)
 
 
 def tostr(self):
     """
-        Nice printing facility for complex types.
+    Nice printing facility for complex types.
     """
-    children = ''
+    children = ""
     for child in self._children:
-        child_name = child['name']
-        array = ''
-        if child['max'].__class__.__name__ != "int" or child['max'] > 1:
-            array = '[]'
+        child_name = child["name"]
+        array = ""
+        if child["max"].__class__.__name__ != "int" or child["max"] > 1:
+            array = "[]"
         child_value = getattr(self, child_name, None)
         many = False
         if len(array) and isinstance(child_value, (list, tuple)):
@@ -89,23 +90,25 @@ def tostr(self):
             shift = shift + 1
             tmp = child_value
             stop = len(child_value)
-            after = '\n]'
+            after = "\n]"
             if stop > 10:
                 stop = 10
-                after = '\n...' + after
-            child_value = ''
+                after = "\n..." + after
+            child_value = ""
             for val in tmp[:stop]:
-                child_value = child_value + ',\n%s' % str(val)
-            child_value = '[\n' + child_value[2:] + after
+                child_value = child_value + ",\n%s" % str(val)
+            child_value = "[\n" + child_value[2:] + after
         elif child_value is not None:
             child_value = str(child_value)
         else:
-            child_value = "%s (%s)" % (str(None),
-                                       get_local_type(child['type'].__name__))
-        child_value = child_value.replace('\n', '\n%s' % (' ' * shift))
-        descr = '    %s%s = %s' % (child_name, array, child_value)
-        children = children + '\n%s' % descr
-    res = '(%s){%s\n}' % (self.__class__.__name__, children)
+            child_value = "%s (%s)" % (
+                str(None),
+                get_local_type(child["type"].__name__),
+            )
+        child_value = child_value.replace("\n", "\n%s" % (" " * shift))
+        descr = "    %s%s = %s" % (child_name, array, child_value)
+        children = children + "\n%s" % descr
+    res = "(%s){%s\n}" % (self.__class__.__name__, children)
 
     return res
 
@@ -115,30 +118,31 @@ def equal(x1, x2):
 
 
 def notequal(x1, x2):
-    return not(equal(x1, x2))
+    return not (equal(x1, x2))
 
 
 class XMLType(object):
     """
-        Base xml schema type.
+    Base xml schema type.
 
-        It defines basic functions to_xml and from_xml.
+    It defines basic functions to_xml and from_xml.
     """
+
     _namespace = ""
 
     def to_xml(self, parent, name):
         """
-            Function to convert to xml from python representation.
+        Function to convert to xml from python representation.
 
-            This is basic function and it is suitable for complex types.
-            Primitive types must overload it.
+        This is basic function and it is suitable for complex types.
+        Primitive types must overload it.
 
-            Parameters
-            ----------
-            parent : etree.Element
-                Parent xml element to append this child to.
-            name : str
-                Full qualified (with namespace) name of this element.
+        Parameters
+        ----------
+        parent : etree.Element
+            Parent xml element to append this child to.
+        name : str
+            Full qualified (with namespace) name of this element.
         """
         # this level element
         element = etree.SubElement(parent, name)
@@ -158,57 +162,67 @@ class XMLType(object):
                 n = len(val)
             elif val is not None:
                 n = 1
-                val = [val, ]
+                val = [
+                    val,
+                ]
 
             if n < child["min"]:
-                raise ValueError("Number of values for %s is less than "
-                                 "min_occurs: %s" % (name, str(val)))
+                raise ValueError(
+                    "Number of values for %s is less than "
+                    "min_occurs: %s" % (name, str(val))
+                )
             if child["max"].__class__.__name__ == "int" and n > child["max"]:
-                raise ValueError("Number of values for %s is more than max_occurs: %s" % (name, str(val)))
+                raise ValueError(
+                    "Number of values for %s is more than max_occurs: %s"
+                    % (name, str(val))
+                )
 
             if n == 0:
                 continue  # only nillables can get so far
 
             # conversion
             for single in val:
-                if not(hasattr(single, "to_xml")):
-                    single = child['type'](single)
+                if not (hasattr(single, "to_xml")):
+                    single = child["type"](single)
                 single.to_xml(element, full_child_name)
-                if child["type"] is XMLAny or \
-                        (isinstance(single, XMLType) and type(single) != child["type"]):
+                if child["type"] is XMLAny or (
+                    isinstance(single, XMLType) and type(single) != child["type"]
+                ):
                     # append type information
-                    element[-1].set("{%s}type" % xmlnamespace.NS_XSI,
-                                    etree.QName(
-                                    "{%s}%s" % (single._namespace,
-                                                single.__class__.__name__)))
+                    element[-1].set(
+                        "{%s}type" % xmlnamespace.NS_XSI,
+                        etree.QName(
+                            "{%s}%s" % (single._namespace, single.__class__.__name__)
+                        ),
+                    )
                 # try:
-                    # single.to_xml(element, full_name)
-                    # if child["type"] is XMLAny:
-                        ## append type information
-                        # element[-1].set("{%s}type" %xmlnamespace.NS_XSI,
-                                #"{%s}%s" % (single._namespace,
-                                           # single.__class__.__name__) )
+                # single.to_xml(element, full_name)
+                # if child["type"] is XMLAny:
+                ## append type information
+                # element[-1].set("{%s}type" %xmlnamespace.NS_XSI,
+                # "{%s}%s" % (single._namespace,
+                # single.__class__.__name__) )
                 # except Exception:
-                    # single = child['type'](single)
-                    # single.to_xml(element, full_name)
+                # single = child['type'](single)
+                # single.to_xml(element, full_name)
 
     def from_xml(self, element):
         """
-            Function to convert from xml to python representation.
+        Function to convert from xml to python representation.
 
-            This is basic function and it is suitable for complex types.
-            Primitive types must overload it.
+        This is basic function and it is suitable for complex types.
+        Primitive types must overload it.
 
-            Parameters
-            ----------
-            element : etree.Element
-                Element to recover from.
+        Parameters
+        ----------
+        element : etree.Element
+            Element to recover from.
         """
         # removed with bug 7, we do not check for this for primitives,
         # so stay consistent for complex as well
         # element is nill
-        #if element.get('{%s}nil' % xmlnamespace.NS_XSI, "false") == "true":
-            #return
+        # if element.get('{%s}nil' % xmlnamespace.NS_XSI, "false") == "true":
+        # return
 
         all_children_names = []
         for child in self._children:
@@ -217,12 +231,12 @@ class XMLType(object):
         for subel in element:
             # name = xmlnamespace.get_local_name(subel.tag)
             name = subel.tag
-            name = name[name.find("}")+1:]
+            name = name[name.find("}") + 1 :]
             ind = all_children_names.index(name)
 
             # used for conversion. for primitive types we receive back built-ins
-            inst = self._children[ind]['type']()
-            explicit_type = subel.get('{%s}type' % xmlnamespace.NS_XSI)
+            inst = self._children[ind]["type"]()
+            explicit_type = subel.get("{%s}type" % xmlnamespace.NS_XSI)
             if explicit_type is not None:
                 inst = XMLAny()
 
@@ -231,13 +245,15 @@ class XMLType(object):
             subvalue = inst.from_xml(subel)
 
             # removed for bug 7
-            #if subvalue is None:
-                #if self._children[ind]['min'] != 0 and \
-                   #self._children[ind]['nillable'] is False:
-                    #raise ValueError("Non-nillable %s element is nil." % name)
-            # None, i.e. nillables, should also be placed here 
-            if self._children[ind]['max'].__class__.__name__ != "int" or\
-               self._children[ind]['max'] > 1:
+            # if subvalue is None:
+            # if self._children[ind]['min'] != 0 and \
+            # self._children[ind]['nillable'] is False:
+            # raise ValueError("Non-nillable %s element is nil." % name)
+            # None, i.e. nillables, should also be placed here
+            if (
+                self._children[ind]["max"].__class__.__name__ != "int"
+                or self._children[ind]["max"] > 1
+            ):
                 current_value = getattr(self, name, None)
                 if current_value is None:
                     current_value = []
@@ -253,30 +269,33 @@ class XMLType(object):
         # do a simplistic validation that all expected elements were present,
         # this is not strict, but ...
         for child in self._children:
-            val = getattr(self, child['name'], None)
+            val = getattr(self, child["name"], None)
             numValues = 0
             if val is not None:
                 numValues = 1
             if isinstance(val, list):
                 numValues = len(val)
-            if numValues < child['min']:
-                raise ValueError("Number of elements '%s' %d is less then minOccurs %d."\
-                                 %(child['name'], numValues, child['min']))
-            if child['max'].__class__.__name__ == "int" and\
-               numValues > child['max']:
-                raise ValueError("Number of elements '%s' %d is more then maxOccurs %d."\
-                                 %(child['name'], numValues, child['max']))
+            if numValues < child["min"]:
+                raise ValueError(
+                    "Number of elements '%s' %d is less then minOccurs %d."
+                    % (child["name"], numValues, child["min"])
+                )
+            if child["max"].__class__.__name__ == "int" and numValues > child["max"]:
+                raise ValueError(
+                    "Number of elements '%s' %d is more then maxOccurs %d."
+                    % (child["name"], numValues, child["max"])
+                )
 
         return self
 
     def to_file(self, fname):
         """
-            Save to file as an xml string.
+        Save to file as an xml string.
 
-            Parameters
-            ----------
-            fname : str
-                Filename to use.
+        Parameters
+        ----------
+        fname : str
+            Filename to use.
         """
         if self._namespace:
             fullname = "{%s}%s" % (self._namespace, self.__class__.__name__)
@@ -291,21 +310,21 @@ class XMLType(object):
     @classmethod
     def from_file(cls, fname):
         """
-            Create an instance from file.
+        Create an instance from file.
 
-            Parameters
-            ----------
-            fname : str
-                Filename to parse.
+        Parameters
+        ----------
+        fname : str
+            Filename to parse.
 
-            Returns
-            -------
-            out : new instance
+        Returns
+        -------
+        out : new instance
         """
         f = open(fname)
-        #s = f.read()
-        #f.close()
-        #root = etree.fromstring(s)
+        # s = f.read()
+        # f.close()
+        # root = etree.fromstring(s)
         root = xmlparser.parse_qualified(f)
         inst = cls()
         return inst.from_xml(root)
@@ -313,27 +332,28 @@ class XMLType(object):
 
 class ComplexTypeMeta(type):
     """
-        Metaclass to create complex types on the fly.
+    Metaclass to create complex types on the fly.
     """
+
     def __new__(cls, name, bases, attributes):
         """
-            Method to create new types.
+        Method to create new types.
 
-            _children attribute must be present in attributes. It describes
-            the arguments to be present in the new type. The he
-            _children argument must be a list of the form:
-            [{'name':'arg1', 'min':1, 'max':1, 'type':ClassType, "fullname":"name with ns"}, ...]
-            Here fullname is used for serialization and must be qualified properly.
+        _children attribute must be present in attributes. It describes
+        the arguments to be present in the new type. The he
+        _children argument must be a list of the form:
+        [{'name':'arg1', 'min':1, 'max':1, 'type':ClassType, "fullname":"name with ns"}, ...]
+        Here fullname is used for serialization and must be qualified properly.
 
-            Parameters
-            ----------
-            cls : this class
-            name : str
-                Name of the new type.
-            bases : tuple
-                List of bases classes.
-            attributes : dict
-                Attributes of the new type.
+        Parameters
+        ----------
+        cls : this class
+        name : str
+            Name of the new type.
+        bases : tuple
+            List of bases classes.
+        attributes : dict
+            Attributes of the new type.
         """
         # list of children, even if empty, must be always present
         if not "_children" in attributes:
@@ -345,7 +365,7 @@ class ComplexTypeMeta(type):
         # all arguments are initially have None value
         for attr in attributes["_children"]:
             # set the argument
-            clsDict[attr['name']] = None
+            clsDict[attr["name"]] = None
         # propagate documentation
         clsDict["__doc__"] = attributes.get("__doc__", None)
         # add nice printing
@@ -378,18 +398,25 @@ class ComplexTypeMeta(type):
 
         # propagate other non-reserved atributes
         for k in attributes:
-            if k not in ("_children", "__init__", "__doc__",
-                         "__ne__", "__eq__", "__str__", "__repr__"):
+            if k not in (
+                "_children",
+                "__init__",
+                "__doc__",
+                "__ne__",
+                "__eq__",
+                "__str__",
+                "__repr__",
+            ):
                 clsDict[k] = attributes[k]
 
         # create new type
         return type.__new__(cls, name, bases, clsDict)
 
+
 # the following is a modified copy from soaplib library
 
 
 class XMLString(XMLType, str):
-
     def to_xml(self, parent, name):
         element = etree.SubElement(parent, name)
         element.text = unicode(self)
@@ -402,7 +429,6 @@ class XMLString(XMLType, str):
 
 
 class XMLBase64Binary(XMLType, str):
-
     def to_xml(self, parent, name):
         element = etree.SubElement(parent, name)
         element.text = base64.b64encode(self)
@@ -429,7 +455,6 @@ class XMLInteger(XMLType, int):
 
 
 class XMLDouble(XMLType, float):
-
     def to_xml(self, parent, name):
         element = etree.SubElement(parent, name)
         element.text = repr(self)
@@ -441,17 +466,16 @@ class XMLDouble(XMLType, float):
 
 
 class XMLBoolean(XMLType, str):
-
     def to_xml(self, parent, name):
         element = etree.SubElement(parent, name)
-        if self in ('True', 'true', '1'):
+        if self in ("True", "true", "1"):
             element.text = repr(True).lower()
         else:
             element.text = repr(False).lower()
 
     def from_xml(cls, element):
         if element.text:
-            return (element.text.lower() in ['true', '1'])
+            return element.text.lower() in ["true", "1"]
         return False
 
 
@@ -466,7 +490,7 @@ class XMLAny(XMLType, str):
 
     def from_xml(self, element):
         # try to find types
-        type = element.get('{%s}type' % xmlnamespace.NS_XSI, None)
+        type = element.get("{%s}type" % xmlnamespace.NS_XSI, None)
         if type is None:
             return element
         type_class = self._types.get(type, None)
@@ -478,7 +502,6 @@ class XMLAny(XMLType, str):
 
 
 class XMLDecimal(XMLType, Decimal):
-
     def to_xml(self, parent, name):
         element = etree.SubElement(parent, name)
         element.text = str(self)
@@ -490,7 +513,6 @@ class XMLDecimal(XMLType, Decimal):
 
 
 class XMLDate(XMLType):
-
     def __init__(self, *arg):
         if len(arg) == 1 and isinstance(arg[0], date):
             self.value = arg[0]
@@ -503,7 +525,7 @@ class XMLDate(XMLType):
 
     def from_xml(self, element):
         """expect ISO formatted dates"""
-        if not(element.text):
+        if not (element.text):
             return date(1970, 1, 1)
         text = element.text
         y, m, d = text.split("-")[:3]
@@ -511,11 +533,10 @@ class XMLDate(XMLType):
         m = int(m)
         d = int(d[:2])
         # ignore time zone information here
-        return  date(y, m, d)
+        return date(y, m, d)
 
 
 class XMLDateTime(XMLType):
-
     def __init__(self, *arg):
         if len(arg) == 1 and isinstance(arg[0], datetime):
             self.value = arg[0]
@@ -524,14 +545,14 @@ class XMLDateTime(XMLType):
 
     def to_xml(self, parent, name):
         element = etree.SubElement(parent, name)
-        element.text = self.value.isoformat('T')
+        element.text = self.value.isoformat("T")
 
     def from_xml(self, element):
-        if not(element.text):
+        if not (element.text):
             return datetime(1970, 1, 1)
         text = element.text
         # this way looks a bit slow, please complain if you need
-        datestr, timestr = text.split("T",1)
+        datestr, timestr = text.split("T", 1)
         year, month, day = datestr.split("-")
         year = int(year)
         month = int(month)
@@ -541,25 +562,26 @@ class XMLDateTime(XMLType):
         minute = int(minute)
         rest = second[2:]
         second = int(second[:2])
-        fraction = 0 
+        fraction = 0
         if rest and rest[0] == ".":
             # fraction of second
             pos = len(rest)
-            for i in range(1,len(rest)):
+            for i in range(1, len(rest)):
                 if not rest[i].isdigit():
                     pos = i
                     break
-            fraction = int(float(rest[:pos])*1e6)
+            fraction = int(float(rest[:pos]) * 1e6)
             rest = rest[pos:]
         value = datetime(year, month, day, hour, minute, second, fraction)
         # time zone to UTC
         if rest and (rest[0] == "+" or rest[0] == "-"):
-            zh, zm = rest.split(":",1)
+            zh, zm = rest.split(":", 1)
             zh = int(zh)
-            zm = int(rest[0]+zm[:2]) # add sign to minutes
-            delta = timedelta(hours = zh, minutes = zm)
+            zm = int(rest[0] + zm[:2])  # add sign to minutes
+            delta = timedelta(hours=zh, minutes=zm)
             value = value - delta
         return value
+
 
 class XMLStringEnumeration(XMLType):
     _allowedValues = []
@@ -574,7 +596,9 @@ class XMLStringEnumeration(XMLType):
         # putting this check here is a hack, to allow the complex type conversion to work properly here, since
         # it creates an instance
         if self.value not in self._allowedValues:
-            raise ValueError("Not allowed value for this enumeration: value = %s" % (self.value))
+            raise ValueError(
+                "Not allowed value for this enumeration: value = %s" % (self.value)
+            )
         element = etree.SubElement(parent, name)
         element.text = unicode(self.value)
 
@@ -583,57 +607,61 @@ class XMLStringEnumeration(XMLType):
         if element.text:
             val = element.text
         if val not in self._allowedValues:
-            raise ValueError("Not allowed value for this enumeration: value = %s" % (val))
+            raise ValueError(
+                "Not allowed value for this enumeration: value = %s" % (val)
+            )
         return val
+
 
 # a map of primitive types
 primmap = {
-    'anyType':                                  XMLAny,
-    '{%s}anyType' % xmlnamespace.NS_XSD:        XMLAny,
-    'boolean':                                  XMLBoolean,
-    '{%s}boolean' % xmlnamespace.NS_XSD:        XMLBoolean,
-    'decimal':                                  XMLDecimal,
-    '{%s}decimal' % xmlnamespace.NS_XSD:        XMLDecimal,
-    'int':                                      XMLInteger,
-    '{%s}int' % xmlnamespace.NS_XSD:            XMLInteger,
-    'integer':                                  XMLInteger,
-    '{%s}integer' % xmlnamespace.NS_XSD:        XMLInteger,
-    'positiveInteger':                          XMLInteger,
-    '{%s}positiveInteger' % xmlnamespace.NS_XSD: XMLInteger,
-    'unsignedInt':                              XMLInteger,
-    '{%s}unsignedInt' % xmlnamespace.NS_XSD:    XMLInteger,
-    'nonNegativeInteger':                       XMLInteger,
-    '{%s}nonNegativeInteger' % xmlnamespace.NS_XSD: XMLInteger,
-    'short':                                    XMLInteger,
-    '{%s}short' % xmlnamespace.NS_XSD:          XMLInteger,
-    'byte':                                     XMLInteger,
-    '{%s}byte' % xmlnamespace.NS_XSD:           XMLInteger,
-    'unsignedByte':                             XMLInteger,
-    '{%s}unsignedByte' % xmlnamespace.NS_XSD:   XMLInteger,
-    'long':                                     XMLInteger,
-    '{%s}long' % xmlnamespace.NS_XSD:           XMLInteger,
-    'unsignedLong':                             XMLInteger,
-    '{%s}unsignedLong' % xmlnamespace.NS_XSD:   XMLInteger,
-    'float':                                    XMLDouble,
-    '{%s}float' % xmlnamespace.NS_XSD:          XMLDouble,
-    'double':                                   XMLDouble,
-    '{%s}double' % xmlnamespace.NS_XSD:         XMLDouble,
-    'string':                                   XMLString,
-    '{%s}string' % xmlnamespace.NS_XSD:         XMLString,
-    'base64Binary':                             XMLBase64Binary,
-    '{%s}base64Binary' % xmlnamespace.NS_XSD:   XMLBase64Binary,
-    'anyURI':                                   XMLString,
-    '{%s}anyURI' % xmlnamespace.NS_XSD:         XMLString,
-    'language':                                 XMLString,
-    '{%s}language' % xmlnamespace.NS_XSD:       XMLString,
-    'token':                                    XMLString,
-    '{%s}token' % xmlnamespace.NS_XSD:          XMLString,
-    'date':                                     XMLDate,
-    '{%s}date' % xmlnamespace.NS_XSD:           XMLDate,
-    'dateTime':                                 XMLDateTime,
-    '{%s}dateTime' % xmlnamespace.NS_XSD:       XMLDateTime,
+    "anyType": XMLAny,
+    "{%s}anyType" % xmlnamespace.NS_XSD: XMLAny,
+    "boolean": XMLBoolean,
+    "{%s}boolean" % xmlnamespace.NS_XSD: XMLBoolean,
+    "decimal": XMLDecimal,
+    "{%s}decimal" % xmlnamespace.NS_XSD: XMLDecimal,
+    "int": XMLInteger,
+    "{%s}int" % xmlnamespace.NS_XSD: XMLInteger,
+    "integer": XMLInteger,
+    "{%s}integer" % xmlnamespace.NS_XSD: XMLInteger,
+    "positiveInteger": XMLInteger,
+    "{%s}positiveInteger" % xmlnamespace.NS_XSD: XMLInteger,
+    "unsignedInt": XMLInteger,
+    "{%s}unsignedInt" % xmlnamespace.NS_XSD: XMLInteger,
+    "nonNegativeInteger": XMLInteger,
+    "{%s}nonNegativeInteger" % xmlnamespace.NS_XSD: XMLInteger,
+    "short": XMLInteger,
+    "{%s}short" % xmlnamespace.NS_XSD: XMLInteger,
+    "byte": XMLInteger,
+    "{%s}byte" % xmlnamespace.NS_XSD: XMLInteger,
+    "unsignedByte": XMLInteger,
+    "{%s}unsignedByte" % xmlnamespace.NS_XSD: XMLInteger,
+    "long": XMLInteger,
+    "{%s}long" % xmlnamespace.NS_XSD: XMLInteger,
+    "unsignedLong": XMLInteger,
+    "{%s}unsignedLong" % xmlnamespace.NS_XSD: XMLInteger,
+    "float": XMLDouble,
+    "{%s}float" % xmlnamespace.NS_XSD: XMLDouble,
+    "double": XMLDouble,
+    "{%s}double" % xmlnamespace.NS_XSD: XMLDouble,
+    "string": XMLString,
+    "{%s}string" % xmlnamespace.NS_XSD: XMLString,
+    "base64Binary": XMLBase64Binary,
+    "{%s}base64Binary" % xmlnamespace.NS_XSD: XMLBase64Binary,
+    "anyURI": XMLString,
+    "{%s}anyURI" % xmlnamespace.NS_XSD: XMLString,
+    "language": XMLString,
+    "{%s}language" % xmlnamespace.NS_XSD: XMLString,
+    "token": XMLString,
+    "{%s}token" % xmlnamespace.NS_XSD: XMLString,
+    "date": XMLDate,
+    "{%s}date" % xmlnamespace.NS_XSD: XMLDate,
+    "dateTime": XMLDateTime,
+    "{%s}dateTime" % xmlnamespace.NS_XSD: XMLDateTime,
     # FIXME: probably timedelta, but needs parsing.
     # It looks like P29DT23H54M58S
-    'duration':                                 XMLString,
-    '{%s}duration' % xmlnamespace.NS_XSD:        XMLString}
+    "duration": XMLString,
+    "{%s}duration" % xmlnamespace.NS_XSD: XMLString,
+}
 XMLAny._types = primmap.copy()

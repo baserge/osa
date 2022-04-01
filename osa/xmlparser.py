@@ -5,37 +5,38 @@
 """
     Help functions for dealing with xml.
 """
-import xml.etree.cElementTree as etree
 import sys
+import xml.etree.cElementTree as etree
+
 if sys.version_info[0] < 3:
-    from urllib2 import urlopen, HTTPError
+    from urllib2 import HTTPError, urlopen
 else:
-    from urllib.request import urlopen, HTTPError
+    from urllib.request import HTTPError, urlopen
 
 default_attr = ["type", "base", "element", "message", "binding", "ref"]
 
 
 def parse_qualified(f, attr=None):
     """
-        Parse xml from file-like object and make changes to qualified values.
+    Parse xml from file-like object and make changes to qualified values.
 
-        The standard ElementTree parser does not do consider namespaces
-        in attribute values. This is however used in wsdl a lot.
-        This function uses iterative parser to find the meaning of the
-        ns-prefixes and substitutes them with proper values as {...}value.
+    The standard ElementTree parser does not do consider namespaces
+    in attribute values. This is however used in wsdl a lot.
+    This function uses iterative parser to find the meaning of the
+    ns-prefixes and substitutes them with proper values as {...}value.
 
-        Parameters
-        ----------
-        f : file-like object
-            Input source of xml.
-        attr : list
-            List of attributes whose value must be considered for
-            namespace expansion. If none the default_attr is used.
+    Parameters
+    ----------
+    f : file-like object
+        Input source of xml.
+    attr : list
+        List of attributes whose value must be considered for
+        namespace expansion. If none the default_attr is used.
 
-        Returns
-        -------
-        root : xml node
-            Root of the supplied document.
+    Returns
+    -------
+    root : xml node
+        Root of the supplied document.
     """
     if attr is None:
         attr = default_attr
@@ -75,9 +76,9 @@ def parse_qualified(f, attr=None):
 
 def parse_qualified_from_url(url, attr=None, wsdl_url=None):
     """
-        The same as `parse_qualified`, but xml is given by its url.
+    The same as `parse_qualified`, but xml is given by its url.
 
-        URL is either  http://, or a file if that prefix is not present.
+    URL is either  http://, or a file if that prefix is not present.
     """
     # open page - get a file like object and
     # parse it into xml
@@ -87,7 +88,7 @@ def parse_qualified_from_url(url, attr=None, wsdl_url=None):
     except (HTTPError, ValueError):
         try:
             # url is something /path/to/file, use open directly
-            page_handler = open(url, 'r')
+            page_handler = open(url, "r")
         except IOError:
             page_handler = None
             orig_url = url
@@ -95,7 +96,7 @@ def parse_qualified_from_url(url, attr=None, wsdl_url=None):
                 try:
                     # local file isn't found, try to get remote file with
                     # wsdl_url 'directory' + filename
-                    url = wsdl_url.rsplit('/', 1)[0] + '/' + url
+                    url = wsdl_url.rsplit("/", 1)[0] + "/" + url
                     page_handler = urlopen(url)
                 except (HTTPError, ValueError):
                     pass
