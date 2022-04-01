@@ -5,55 +5,54 @@
 """
     Conversion of WSDL documents into Python.
 """
-from . import xmlnamespace
-from . import xmlparser
-from . import xmlschema
-from . import xmltypes
-from . import message
-from . import method
 import xml.etree.cElementTree as etree
+
+from . import message, method, xmlnamespace, xmlparser, xmlschema, xmltypes
 
 
 class WSDLParser(object):
     """
-        Parser to get types and methods defined in the document.
+    Parser to get types and methods defined in the document.
     """
+
     def __init__(self, wsdl_url):
         """
-            Initialize parser.
+        Initialize parser.
 
-            The WSDL document is loaded and is converted into xml.
+        The WSDL document is loaded and is converted into xml.
 
-            Initialized members:
-            self.wsdl_url  - url of wsdl document, or file
-            self.wsdl - xml document read from wsdl_url (etree.Element)
-            self.tns - target namespace
+        Initialized members:
+        self.wsdl_url  - url of wsdl document, or file
+        self.wsdl - xml document read from wsdl_url (etree.Element)
+        self.tns - target namespace
 
-            Parameters
-            ----------
-            wsdl_url : str
-                Address of the WSDL document.
+        Parameters
+        ----------
+        wsdl_url : str
+            Address of the WSDL document.
         """
         self.wsdl_url = wsdl_url
         self.wsdl = xmlparser.parse_qualified_from_url(wsdl_url)
         if self.wsdl.tag != "{%s}definitions" % xmlnamespace.NS_WSDL:
-            raise ValueError("Not a WSDL xml, the top level element: %s" %
-                             self.wsdl.tag)
+            raise ValueError(
+                "Not a WSDL xml, the top level element: %s" % self.wsdl.tag
+            )
         # get target namespace
-        self.tns = self.wsdl.get('targetNamespace', "")
+        self.tns = self.wsdl.get("targetNamespace", "")
 
-    def get_types(self, ):
+    def get_types(
+        self,
+    ):
         """
-            Constructs a map of all types defined in the document.
+        Constructs a map of all types defined in the document.
 
-            Returns
-            -------
-            out : dict
-                A map of found types {type_name : complex class}
+        Returns
+        -------
+        out : dict
+            A map of found types {type_name : complex class}
         """
-        types_section = self.wsdl.findall('.//{%s}types' %
-                                          xmlnamespace.NS_WSDL)[0]
-        schemas = types_section.findall('./{%s}schema' % xmlnamespace.NS_XSD)
+        types_section = self.wsdl.findall(".//{%s}types" % xmlnamespace.NS_WSDL)[0]
+        schemas = types_section.findall("./{%s}schema" % xmlnamespace.NS_XSD)
         xtypes = {}
         for schema in schemas:
             parser = xmlschema.XMLSchemaParser(schema, wsdl_url=self.wsdl_url)
@@ -64,80 +63,85 @@ class WSDLParser(object):
 
     def get_messages(self, types):
         """
-            Construct messages from message section.
+         Construct messages from message section.
 
-            Parameters
-            ----------
-            types : dictionary of types
-                Types as returned by get_types().
+         Parameters
+         ----------
+         types : dictionary of types
+             Types as returned by get_types().
 
-           Returns
-           -------
-           out : dict
-            Map message name -> Message instance
+        Returns
+        -------
+        out : dict
+         Map message name -> Message instance
         """
-        xmessages = self.wsdl.findall('./{%s}message' % xmlnamespace.NS_WSDL)
+        xmessages = self.wsdl.findall("./{%s}message" % xmlnamespace.NS_WSDL)
         messages = {}
         for x in xmessages:
             message_name = "{%s}%s" % (self.tns, x.get("name", ""))
             parts = []
-            xparts = x.findall('./{%s}part' % xmlnamespace.NS_WSDL)
+            xparts = x.findall("./{%s}part" % xmlnamespace.NS_WSDL)
             for y in xparts:
                 part_name = y.get("name", "")
                 part_type = y.get("element", None)
                 if part_type is None:
                     part_type = y.get("type", None)
                 if part_type is None:
-                    raise ValueError("Could not find part type in:\n %s"
-                                     % (etree.tostring(x).decode()))
+                    raise ValueError(
+                        "Could not find part type in:\n %s"
+                        % (etree.tostring(x).decode())
+                    )
                 cls = None
                 if part_type in types:
                     cls = types[part_type]
                 elif part_type in xmltypes.primmap:
                     cls = xmltypes.primmap[part_type]
                 else:
-                    raise ValueError("Type %s not found for message:\n%s" %
-                                     (part_type, etree.tostring(x).decode()))
+                    raise ValueError(
+                        "Type %s not found for message:\n%s"
+                        % (part_type, etree.tostring(x).decode())
+                    )
                 parts.append([part_name, cls])
-            messages[message_name] = message.Message(message_name,
-                                                     parts)
+            messages[message_name] = message.Message(message_name, parts)
         return messages
 
     def get_operations(self, messages):
         """
-            Get list of operations with messages
-            from portType section.
+         Get list of operations with messages
+         from portType section.
 
-            Parameters
-            ----------
-            messages : dict
-                Dictionary of message from `get_messages`.
+         Parameters
+         ----------
+         messages : dict
+             Dictionary of message from `get_messages`.
 
-           Returns
-           -------
-           out : dict
-            {portType -> {operation name -> Method instance}}
-            The method here does not have location.
+        Returns
+        -------
+        out : dict
+         {portType -> {operation name -> Method instance}}
+         The method here does not have location.
         """
-        xports = self.wsdl.findall('./{%s}portType' % xmlnamespace.NS_WSDL)
+        xports = self.wsdl.findall("./{%s}portType" % xmlnamespace.NS_WSDL)
         ports = {}
         for xport in xports:
             port_name = "{%s}%s" % (self.tns, xport.get("name", ""))
             ports[port_name] = {}
-            xops = xport.findall('./{%s}operation' % xmlnamespace.NS_WSDL)
+            xops = xport.findall("./{%s}operation" % xmlnamespace.NS_WSDL)
             for xop in xops:
                 op_name = xop.get("name", "")
                 ports[port_name][op_name] = {}
-                xin = xop.findall('./{%s}input' % xmlnamespace.NS_WSDL)
-                if not(xin):
-                    raise ValueError("No input message in operation: \n%s" %
-                                     (etree.tostring(xop).decode()))
+                xin = xop.findall("./{%s}input" % xmlnamespace.NS_WSDL)
+                if not (xin):
+                    raise ValueError(
+                        "No input message in operation: \n%s"
+                        % (etree.tostring(xop).decode())
+                    )
                 in_name = xin[0].get("message", "")
                 if not in_name in messages:
                     raise ValueError("Message %s not found." % in_name)
                 in_cl = messages[in_name]
                 out_cl = None
-                xout = xop.findall('./{%s}output' % xmlnamespace.NS_WSDL)
+                xout = xop.findall("./{%s}output" % xmlnamespace.NS_WSDL)
                 if xout:
                     out_name = xout[0].get("message", "")
                     if not out_name in messages:
@@ -145,7 +149,7 @@ class WSDLParser(object):
                     out_cl = messages[out_name]
 
                 # documentation
-                doc = xop.find('{%s}documentation' % xmlnamespace.NS_WSDL)
+                doc = xop.find("{%s}documentation" % xmlnamespace.NS_WSDL)
                 if doc is not None:
                     doc = doc.text
 
@@ -155,22 +159,22 @@ class WSDLParser(object):
 
     def get_bindings(self, operations):
         """
-            Check binding document/literal and http transport.
+        Check binding document/literal and http transport.
 
-            If any of the conditions is not satisfied
-            the binding is dropped, i.e. not present in
-            the return value. This also sets soapAction
-            and use_parts of the messages.
+        If any of the conditions is not satisfied
+        the binding is dropped, i.e. not present in
+        the return value. This also sets soapAction
+        and use_parts of the messages.
 
-            Parameters
-            ----------
-            operations : dict as returned by get_operations
+        Parameters
+        ----------
+        operations : dict as returned by get_operations
 
-            Returns
-            -------
-            out : dict
-             Map similar to that from get_operations but
-             with binding names instead of portType names.
+        Returns
+        -------
+        out : dict
+         Map similar to that from get_operations but
+         with binding names instead of portType names.
         """
         xbindings = self.wsdl.findall("./{%s}binding" % xmlnamespace.NS_WSDL)
         bindings = {}
@@ -178,17 +182,20 @@ class WSDLParser(object):
             b_name = "{%s}%s" % (self.tns, xb.get("name", ""))
             b_type = xb.get("type", None)
             if b_type is None:
-                raise ValueError("No type in binding %s" %
-                                 (etree.tostring(xb).decode()))
+                raise ValueError(
+                    "No type in binding %s" % (etree.tostring(xb).decode())
+                )
             if not b_type in operations:
                 raise ValueError("Binding type %s no in operations" % b_type)
             xb_soap = xb.findall("./{%s}binding" % xmlnamespace.NS_SOAP)
-            if not(xb_soap):
+            if not (xb_soap):
                 continue  # not a soap binding in wsdl
             if xb_soap[0].get("style", "") == "rpc":
                 continue
-            if xb_soap[0].get("transport", "") !=\
-                    "http://schemas.xmlsoap.org/soap/http":
+            if (
+                xb_soap[0].get("transport", "")
+                != "http://schemas.xmlsoap.org/soap/http"
+            ):
                 continue
             ops = operations[b_type]
             bindings[b_name] = {}
@@ -196,8 +203,7 @@ class WSDLParser(object):
             for xop in xops:
                 op_name = xop.get("name", "")
                 if not op_name in ops:
-                    raise ValueError("operation %s no in operations" %
-                                     op_name)
+                    raise ValueError("operation %s no in operations" % op_name)
                 soap_op = xop.find("./{%s}operation" % xmlnamespace.NS_SOAP)
                 s_action = None
                 if soap_op is not None:
@@ -208,8 +214,9 @@ class WSDLParser(object):
                 if xop_in is not None:
                     xop_in_body = xop_in.find("./{%s}body" % xmlnamespace.NS_SOAP)
                     if xop_in_body is None:
-                        raise ValueError("No body found for %s" %
-                                         (etree.tostring(xop).decode()))
+                        raise ValueError(
+                            "No body found for %s" % (etree.tostring(xop).decode())
+                        )
                     if xop_in_body.get("use") != "literal":
                         all_literal = False
                     parts = xop_in_body.get("parts")
@@ -228,8 +235,9 @@ class WSDLParser(object):
                 if xop_out is not None:
                     xop_out_body = xop_out.find("./{%s}body" % xmlnamespace.NS_SOAP)
                     if xop_out_body is None:
-                        raise ValueError("No body found for %s" %
-                                         (etree.tostring(xop).decode()))
+                        raise ValueError(
+                            "No body found for %s" % (etree.tostring(xop).decode())
+                        )
                     if xop_out_body.get("use") != "literal":
                         all_literal = False
                     parts = xop_out_body.get("parts")
@@ -253,30 +261,30 @@ class WSDLParser(object):
 
     def get_services(self, bindings):
         """
-            Find all services an make final list of
-            operations.
+        Find all services an make final list of
+        operations.
 
-            This also sets location to all operations.
+        This also sets location to all operations.
 
-            Parameters
-            ----------
-            bindings : dic from get_bindings.
+        Parameters
+        ----------
+        bindings : dic from get_bindings.
 
-            Returns
-            -------
-            out : dict
-                Dictionary {service -> {operation name -> method}.
+        Returns
+        -------
+        out : dict
+            Dictionary {service -> {operation name -> method}.
         """
 
-        xservices = self.wsdl.findall('./{%s}service' % xmlnamespace.NS_WSDL)
+        xservices = self.wsdl.findall("./{%s}service" % xmlnamespace.NS_WSDL)
         services = {}
         for xs in xservices:
             s_name = xs.get("name", "")
-            xports = xs.findall('./{%s}port' % xmlnamespace.NS_WSDL)
+            xports = xs.findall("./{%s}port" % xmlnamespace.NS_WSDL)
             for xp in xports:
                 b = xp.get("binding", "")
-                xaddr = xp.findall('./{%s}address' % xmlnamespace.NS_SOAP)
-                if not(xaddr):
+                xaddr = xp.findall("./{%s}address" % xmlnamespace.NS_SOAP)
+                if not (xaddr):
                     continue  # no soap 11
                 loc = xaddr[0].get("location", "")
                 if b in bindings:
@@ -287,11 +295,11 @@ class WSDLParser(object):
 
     def parse(self):
         """
-            Do parsing, return types, services.
+        Do parsing, return types, services.
 
-            Returns
-            -------
-            out : (types, services)
+        Returns
+        -------
+        out : (types, services)
         """
         t = self.get_types()
         m = self.get_messages(t)
