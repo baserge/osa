@@ -79,9 +79,18 @@ class Method(object):
 
         return '%s = %s(%s)' % (output_msg, self.name, input_msg)
 
-    def __call__(self, *arg, **kw):
+    def __call__(self, *arg, osa_timeout=None, osa_retry=0, **kw):
         """
             Process rpc-call.
+
+            osa_timeout : float (optional)
+                specifies the timeout for the operation. That only sets a
+                timeout for the client but does not terminate the computation
+                on the server. Default is no timeout.
+
+            osa_retry : int (optional)
+                retry the call, and if so, how often? Default is to not retry
+                (`osa_retry=0`).
         """
         # create soap-wrap around our message
         env = etree.Element('{%s}Envelope' % xmlnamespace.NS_SOAP_ENV)
@@ -101,9 +110,18 @@ class Method(object):
                            'SOAPAction': self.action})
         del text_msg
 
+        args = [None, osa_timeout] if osa_timeout else []
         # real rpc
         try:
-            response = urlopen(request)
+            while osa_retry + 1:
+                try:
+                    response = urlopen(request, *args)
+                    break
+                except:
+                    if osa_retry:
+                        osa_retry -= 1
+                    else:
+                        raise
             del request
             # check http code returned
             if response.code == 200:

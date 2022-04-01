@@ -18,7 +18,7 @@ class WSDLParser(object):
     """
         Parser to get types and methods defined in the document.
     """
-    def __init__(self, wsdl_url):
+    def __init__(self, wsdl_url, osa_timeout=None):
         """
             Initialize parser.
 
@@ -35,7 +35,7 @@ class WSDLParser(object):
                 Address of the WSDL document.
         """
         self.wsdl_url = wsdl_url
-        self.wsdl = xmlparser.parse_qualified_from_url(wsdl_url)
+        self.wsdl = xmlparser.parse_qualified_from_url(wsdl_url, osa_timeout=osa_timeout)
         if self.wsdl.tag != "{%s}definitions" % xmlnamespace.NS_WSDL:
             raise ValueError("Not a WSDL xml, the top level element: %s" %
                              self.wsdl.tag)
